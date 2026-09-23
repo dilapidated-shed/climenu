@@ -1,0 +1,8 @@
+usage: example [OPTIONS] FILE
+
+Options:
+  -h, --help              Show this help and exit
+  -q, --quiet             Suppress ordinary output
+  -o, --output <FILE>     Write output to FILE
+      --color <WHEN>      Colorize output: auto, always, or never
+      --jobs <COUNT>      Number of jobs to run

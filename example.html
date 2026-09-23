@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>example — climenu</title>
+<style>
+:root{font-family:system-ui,sans-serif;color-scheme:light dark}
+body{max-width:72rem;margin:auto;padding:2rem}
+#search{box-sizing:border-box;width:100%;font:inherit;padding:.8rem;margin:1rem 0}
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem}
+.flag{border:1px solid currentColor;border-radius:.7rem;padding:1rem}
+.flag header{display:flex;gap:1rem;justify-content:space-between}
+.syntax{font-weight:700}.source{font-size:.75rem;border:1px solid currentColor;border-radius:1rem;padding:.1rem .4rem}
+.example{display:block;margin-top:.7rem}
+</style>
+</head>
+<body>
+<h1>example</h1>
+<p>One view of the command instead of a collection of flag formats.</p>
+<input id="search" type="search" placeholder="filter flags, descriptions, examples…">
+<main class="flags">
+<article class="flag"><header><code class="syntax">-h, --help</code><div class="sources"><span class="source">--help</span></div></header><p>Show this help and exit</p><code class="example">example --help</code></article>
+<article class="flag"><header><code class="syntax">-q, --quiet</code><div class="sources"><span class="source">--help</span></div></header><p>Suppress ordinary output</p><code class="example">example --quiet</code></article>
+<article class="flag"><header><code class="syntax">-o, --output &lt;FILE&gt;</code><div class="sources"><span class="source">--help</span></div></header><p>Write output to FILE</p><code class="example">example --output &lt;FILE&gt;</code></article>
+<article class="flag"><header><code class="syntax">--color &lt;WHEN&gt;</code><div class="sources"><span class="source">--help</span></div></header><p>Colorize output: auto, always, or never</p><code class="example">example --color &lt;WHEN&gt;</code></article>
+<article class="flag"><header><code class="syntax">--jobs &lt;COUNT&gt;</code><div class="sources"><span class="source">--help</span></div></header><p>Number of jobs to run</p><code class="example">example --jobs &lt;COUNT&gt;</code></article>
+</main>
+<script>
+document.querySelector('#search').addEventListener('input',event=>{
+  const q=event.target.value.toLowerCase();
+  document.querySelectorAll('.flag').forEach(card=>
+    card.hidden=!card.textContent.toLowerCase().includes(q));
+});
+</script>
+</body>
+</html>
