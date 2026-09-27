@@ -40,5 +40,11 @@ jobs:
 
       - name: Check APK artifact
         run: |
-          test -s climenu.apk
-          unzip -t climenu.apk >/dev/null
+          test -s preference-gym.apk
+          unzip -t preference-gym.apk >/dev/null
+
+      - name: Publish APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: preference-gym-apk
+          path: preference-gym.apk
