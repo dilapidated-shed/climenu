@@ -4,6 +4,16 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$repo_dir"
 
+generated="_/android/app/generated-src/org/isomorphisms/preferencegym"
+rm -rf "_/android/app/generated-src"
+mkdir -p "$generated"
+cp PreferenceGym.java "$generated/PreferenceGym.java"
+
+cleanup() {
+    rm -rf "_/android/app/generated-src"
+}
+trap cleanup EXIT HUP INT TERM
+
 gradle -p _/android :app:assembleDebug
-cp _/android/app/build/outputs/apk/debug/app-debug.apk climenu.apk
-printf '%s\n' "$repo_dir/climenu.apk"
+cp _/android/app/build/outputs/apk/debug/app-debug.apk preference-gym.apk
+printf '%s\n' "$repo_dir/preference-gym.apk"
