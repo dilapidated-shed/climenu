@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -16,6 +17,7 @@ import android.widget.Toast;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -38,7 +40,7 @@ import java.util.zip.ZipOutputStream;
 public final class PreferenceGym extends Activity {
     private static final int EXPORT_REQUEST = 7;
 
-    private static final String CURRENT_TRAINER = "isomorphismes";
+    private static final String DEFAULT_TRAINER = "isomorphismes";
     private static final String[] KNOWN_TRAINERS = {
         "Jared",
         "Bill",
@@ -49,6 +51,7 @@ public final class PreferenceGym extends Activity {
     };
 
     private TrainingStore store;
+    private String current_trainer;
     private TextInputEditText prompt;
     private TextInputEditText answer_a;
     private TextInputEditText answer_b;
@@ -64,6 +67,7 @@ public final class PreferenceGym extends Activity {
         super.onCreate(state);
 
         store = new TrainingStore(this);
+        current_trainer = store.current_trainer();
         setContentView(build_screen());
 
         Intent incoming = getIntent();
@@ -87,10 +91,30 @@ public final class PreferenceGym extends Activity {
         title.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_HeadlineMedium);
         root.addView(title, match_wrap());
 
-        TextView trainer = new TextView(this);
-        trainer.setText("trainer: " + CURRENT_TRAINER);
-        trainer.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
-        root.addView(trainer, match_wrap_with_bottom(dp(4)));
+        TextInputLayout trainer_shell = new TextInputLayout(this);
+        trainer_shell.setHint("Trainer");
+        trainer_shell.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+        trainer_shell.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
+
+        MaterialAutoCompleteTextView trainer = new MaterialAutoCompleteTextView(trainer_shell.getContext());
+        trainer.setInputType(InputType.TYPE_NULL);
+        trainer.setAdapter(new ArrayAdapter<>(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            KNOWN_TRAINERS
+        ));
+        trainer.setText(current_trainer, false);
+        trainer.setOnItemClickListener((parent, view, position, id) -> {
+            current_trainer = KNOWN_TRAINERS[position];
+            try {
+                store.set_current_trainer(current_trainer);
+                update_saved_count();
+            } catch (IOException failure) {
+                toast("Could not save trainer: " + failure.getMessage());
+            }
+        });
+        trainer_shell.addView(trainer, match_wrap());
+        root.addView(trainer_shell, match_wrap_with_bottom(dp(8)));
 
         saved_count = new TextView(this);
         saved_count.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
@@ -122,8 +146,8 @@ public final class PreferenceGym extends Activity {
         prefer_b.setText("Prefer B");
         prefer_b.setOnClickListener(v -> preferred = "b");
 
-        choices.addView(prefer_a, new MaterialButtonToggleGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        choices.addView(prefer_b, new MaterialButtonToggleGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        choices.addView(prefer_a, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        choices.addView(prefer_b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(choices, match_wrap_with_bottom(dp(20)));
 
         root.addView(section("Better responses"), match_wrap_with_bottom(dp(4)));
@@ -223,7 +247,7 @@ public final class PreferenceGym extends Activity {
         String a = text(answer_a);
         String b = text(answer_b);
 
-        if (prompt_text.isEmpty() || a.isEmpty() || b.isEmpty()) {
+        if (prompt_text.trim().isEmpty() || a.trim().isEmpty() || b.trim().isEmpty()) {
             toast("Prompt, A, and B are required.");
             return;
         }
@@ -238,14 +262,14 @@ public final class PreferenceGym extends Activity {
             TextInputLayout shell = (TextInputLayout) better_responses.getChildAt(index);
             TextInputEditText edit = (TextInputEditText) shell.getEditText();
             String value = edit == null ? "" : text(edit);
-            if (!value.isEmpty()) {
+            if (!value.trim().isEmpty()) {
                 authored.add(value);
             }
         }
 
         try {
             String record_id = store.save(
-                CURRENT_TRAINER,
+                current_trainer,
                 prompt_text,
                 a,
                 b,
@@ -280,7 +304,7 @@ public final class PreferenceGym extends Activity {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/zip");
-        intent.putExtra(Intent.EXTRA_TITLE, "preference-training-" + CURRENT_TRAINER + ".zip");
+        intent.putExtra(Intent.EXTRA_TITLE, "preference-training-" + current_trainer + ".zip");
         startActivityForResult(intent, EXPORT_REQUEST);
     }
 
@@ -305,7 +329,7 @@ public final class PreferenceGym extends Activity {
     }
 
     private void update_saved_count() {
-        saved_count.setText(store.record_count(CURRENT_TRAINER) + " saved for " + CURRENT_TRAINER);
+        saved_count.setText(store.record_count(current_trainer) + " saved for " + current_trainer);
     }
 
     private TextView section(String text) {
@@ -319,7 +343,7 @@ public final class PreferenceGym extends Activity {
         if (edit.getText() == null) {
             return "";
         }
-        return edit.getText().toString().trim();
+        return edit.getText().toString();
     }
 
     private static void set_text(TextInputEditText edit, String value) {
@@ -376,6 +400,33 @@ public final class PreferenceGym extends Activity {
             this.root = new File(context.getFilesDir(), "preference-training");
         }
 
+        String current_trainer() {
+            File selected = new File(root, "current-trainer.txt");
+            if (!selected.isFile()) {
+                return DEFAULT_TRAINER;
+            }
+            try (FileInputStream input = new FileInputStream(selected)) {
+                byte[] bytes = new byte[(int) selected.length()];
+                int read = input.read(bytes);
+                String value = new String(bytes, 0, Math.max(read, 0), StandardCharsets.UTF_8).trim();
+                for (String known : KNOWN_TRAINERS) {
+                    if (known.equals(value)) {
+                        return value;
+                    }
+                }
+            } catch (IOException ignored) {
+            }
+            return DEFAULT_TRAINER;
+        }
+
+        void set_current_trainer(String trainer) throws IOException {
+            require_known_trainer(trainer);
+            if (!root.isDirectory() && !root.mkdirs()) {
+                throw new IOException("cannot create training directory");
+            }
+            write(new File(root, "current-trainer.txt"), trainer + "\n");
+        }
+
         int record_count(String trainer) {
             File records = records_root(trainer);
             File[] children = records.listFiles(file -> file.isDirectory() && !file.getName().startsWith("."));
@@ -417,14 +468,14 @@ public final class PreferenceGym extends Activity {
 
             try {
                 write(new File(temp_dir, "trainer.txt"), trainer + "\n");
-                write(new File(temp_dir, "prompt.txt"), prompt + "\n");
+                write(new File(temp_dir, "prompt.txt"), prompt);
 
                 File responses = new File(temp_dir, "responses");
                 if (!responses.mkdir()) {
                     throw new IOException("cannot create responses directory");
                 }
-                write(new File(responses, "a.txt"), answer_a + "\n");
-                write(new File(responses, "b.txt"), answer_b + "\n");
+                write(new File(responses, "a.txt"), answer_a);
+                write(new File(responses, "b.txt"), answer_b);
 
                 StringBuilder preference = new StringBuilder();
                 preference.append("preferred\trejected\trelation\n");
@@ -439,7 +490,7 @@ public final class PreferenceGym extends Activity {
 
                 for (int i = 0; i < authored.size(); i++) {
                     String label = candidate_label(i + 2).toLowerCase(Locale.ROOT);
-                    write(new File(responses, label + ".txt"), authored.get(i) + "\n");
+                    write(new File(responses, label + ".txt"), authored.get(i));
                     preference.append(label).append("\ta\tauthored-better\n");
                     preference.append(label).append("\tb\tauthored-better\n");
                     supervised.append(label).append("\t").append(trainer).append("\n");
@@ -465,7 +516,11 @@ public final class PreferenceGym extends Activity {
                     throw new IOException("cannot publish completed record");
                 }
 
-                append_index(trainer, record_id, created_at_ms, preferred, authored.size());
+                try {
+                    append_index(trainer, record_id, created_at_ms, preferred, authored.size());
+                } catch (IOException ignored) {
+                    // index.tsv is derived; the immutable record remains canonical.
+                }
             } catch (IOException failure) {
                 delete_tree(temp_dir);
                 throw failure;
