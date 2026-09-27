@@ -20,7 +20,9 @@ android {
     }
 
     sourceSets {
-        main.java.srcDirs += ['generated-src']
+        main {
+            java.srcDir 'generated-src'
+        }
     }
 }
 
