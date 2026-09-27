@@ -1,80 +1,71 @@
-# climenu
+# Preference Gym
 
-A deliberately small Android menu using Material Design 3.
+A small Material Design 3 Android app for producing reusable preference-training records.
 
-The useful UI source is `Climenu.kt` at the repository top level. Android/Gradle plumbing lives under `_ /android` (without the space: `_/android`).
+The Android shell is Java plus ordinary XML/Groovy build plumbing. There is no Kotlin or Compose in this branch.
 
-## First substantial example: `gh`
+## Trainers
 
-With no Activity extras, `climenu` now opens a GitHub CLI (`gh`) command menu. The compact command fixture is in `GhExample.kt` and `examples/gh/command_tree.tsv`.
+Known trainer names:
 
-`examples/gh/` also records the authoritative manual/documentation sources and how the actual `gh` parser is assembled. Run:
+- Jared
+- Bill
+- Steven
+- Mxd
+- Giuseppe
+- isomorphismes
 
-```sh
-sh ./import-gh
-```
+The app defaults to `isomorphismes`, so the present build does not ask for an identity on launch. The trainer field is still editable from the fixed list so the same APK can later be handed to the other trainers. The selected trainer is written to a plain `current-trainer.txt` configuration file and every judgment also contains its own `trainer.txt`.
 
-to materialize the complete `gh help`/`gh help reference` corpus, the pinned generated manpage tree when a suitable Go toolchain is available, and the upstream Cobra command/parser source into `examples/gh/imported/`.
+## Training workflow
 
-The current fixture is pinned to GitHub CLI 2.100.0.
+1. Enter or inject a prompt.
+2. Enter candidate responses A and B.
+3. Choose A or B.
+4. Optionally write one or more better responses C/D/E/...
+5. Save.
 
-## First slice
+A/B creates one pairwise preference edge. Every authored better response becomes a supervised target and is also recorded as preferred to both A and B. Authored responses are not ranked against one another.
 
-- Material 3 list UI
-- system dark/light theme
-- Android 12+ dynamic color
-- `gh` root commands as the default example
-- prompt and choices can still be supplied as Activity intent extras
-- tap a row to select it
-- no JNI yet
+## Filesystem is canonical
+
+SQLite is deliberately not used. Each judgment is an immutable directory:
+
+    preference-training/
+        users/
+            isomorphismes/
+                index.tsv
+                records/
+                    20260927-015200-123/
+                        trainer.txt
+                        prompt.txt
+                        responses/
+                            a.txt
+                            b.txt
+                            c.txt
+                        preference.tsv
+                        supervised.tsv
+                        metadata.tsv
+                        complete
+
+`prompt.txt` and every response file contain the exact text entered by the trainer; they are not hashed, normalized, or deduplicated. Repeated runs of the same prompt remain separate records.
+
+`index.tsv` is only a rectangular cache for quick scans and joins. The record directories are authoritative, and `training-data/rebuild-index` can regenerate the cache. This keeps the convenient relational projection without making a database the source of truth.
+
+A ZIP export is only a transport wrapper around the ordinary files. Repeated prompts and metadata compress well when archived or packed in Git, so repetition is not a strong reason by itself to introduce SQLite.
 
 ## Build
 
 Requires JDK 17, Android SDK 37, and Gradle 9.6.0.
 
-```sh
-./build
-```
+    ./build
 
-This leaves the useful artifact at:
+The output is:
 
-```text
-climenu.apk
-```
+    preference-gym.apk
 
-Install and launch:
+On the MIRO phone, install by opening the APK in the Files app.
 
-```sh
-adb install -r climenu.apk
-adb shell am start -n org.isomorphisms.climenu/.MainActivity
-```
+## Hosted acceptance
 
-Pass a prompt and choices from a shell:
-
-```sh
-adb shell am start -n org.isomorphisms.climenu/.MainActivity \
-  --es prompt 'Choose an action' \
-  --esa choices 'one,two,three'
-```
-
-## Acceptance
-
-### Hosted build
-
-The hosted boundary is deliberately smaller than a device receipt:
-
-1. JDK 17, Android SDK platform 37.0, Android Build Tools 36.0.0, and Gradle 9.6.0 are available.
-2. `./build` completes and produces `climenu.apk`.
-3. `climenu.apk` is non-empty and passes ZIP integrity checking.
-
-Passing this boundary proves that the Android project compiles and packages. It does **not** prove installation, launch, rendering, dynamic color, or interaction on a device.
-
-### Device receipt still required
-
-1. The APK installs and starts on an Android device.
-2. With no extras, the screen renders the Material 3 `gh` command fixture.
-3. Tapping a row marks exactly that row selected and displays its value below the list.
-4. Explicit `prompt`/`choices` extras override the `gh` fixture.
-5. Android 12+ dynamic color is checked on a device that supports it.
-
-JNI/native/Idriç integration comes after these boundaries are trustworthy; it should carry actual menu data/actions rather than exist only as a placeholder.
+The pull-request workflow builds the APK, checks ZIP integrity, and publishes `preference-gym.apk` as an Actions artifact. Device installation, Material 3 rendering, file creation, trainer switching, and export remain device acceptance boundaries.
