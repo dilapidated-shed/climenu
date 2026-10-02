@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+root=${1:-preference-training}
+
+for user_dir in "$root"/users/*; do
+    [ -d "$user_dir" ] || continue
+    trainer=$(basename "$user_dir")
+    records="$user_dir/records"
+    [ -d "$records" ] || continue
+
+    tmp="$user_dir/.index.tsv.tmp"
+    printf 'record_id\tcreated_at_ms\ttrainer\tpairwise_winner\tauthored_response_count\n' > "$tmp"
+
+    for record in "$records"/*; do
+        [ -d "$record" ] || continue
+        [ -f "$record/complete" ] || continue
+
+        record_id=$(basename "$record")
+        created_at_ms=$(awk -F '\t' '$1 == "created_at_ms" { print $2; exit }' "$record/metadata.tsv")
+        pairwise_winner=$(awk -F '\t' 'NR == 2 { print $1; exit }' "$record/preference.tsv")
+        authored_response_count=$(awk -F '\t' 'NR > 1 { n += 1 } END { print n + 0 }' "$record/supervised.tsv")
+
+        printf '%s\t%s\t%s\t%s\t%s\n'             "$record_id"             "$created_at_ms"             "$trainer"             "$pairwise_winner"             "$authored_response_count" >> "$tmp"
+    done
+
+    mv "$tmp" "$user_dir/index.tsv"
+done
